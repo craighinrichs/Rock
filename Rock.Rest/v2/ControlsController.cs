@@ -84,6 +84,42 @@ namespace Rock.Rest.v2
     [Rock.SystemGuid.RestControllerGuid( "815B51F0-B552-47FD-8915-C653EEDD5B67" )]
     public class ControlsController : ApiControllerBase
     {
+        /// <summary>
+        /// Retrieves a list of active groups based on the specified options.
+        /// </summary>
+        /// <param name="options">The options used to filter the active groups.</param>
+        /// <returns>A list of active groups.</returns>
+        [HttpPost]
+        [Route("ActiveGroupsList")]
+        [Authenticate]
+        [ExcludeSecurityActions(Security.Authorization.EXECUTE_READ, Security.Authorization.EXECUTE_WRITE, Security.Authorization.EXECUTE_UNRESTRICTED_READ, Security.Authorization.EXECUTE_UNRESTRICTED_WRITE)]
+        [ProducesResponseType(HttpStatusCode.OK, Type = typeof(List<ActiveGroupsListOptionsBag>))]
+        [ProducesResponseType(HttpStatusCode.NotFound)]
+        public IActionResult ActiveGroupsList([FromBody] ActiveGroupsListOptionsBag options)
+        {
+            using (var rockContext = new RockContext())
+            {
+                var groupService = new GroupService(rockContext);
+                var qry = groupService.Queryable().AsNoTracking()
+                    .Where(g => g.IsActive && g.GroupType.Guid == options.GroupTypeGuid);
+                if (options.IncludeInactive)
+                {
+                    qry = qry.Where(g => !g.IsActive);
+                }
+                var groups = qry
+                    .OrderBy(g => g.Name)
+                    .Select(g => new ListItemBag
+                    {
+                        Value = g.Guid.ToString(),
+                        Text = g.Name,
+                        Category = g.GroupType.Name
+                    })
+                    .ToList();
+                return Ok(groups);
+            }
+        }
+
+
         #region Account Picker
 
         /// <summary>
@@ -10059,6 +10095,23 @@ namespace Rock.Rest.v2
             };
         }
 
+        /// <summary>
+        /// Represents the options for retrieving a list of active groups.
+        /// </summary>
+        public class ActiveGroupsListOptionsBag
+        {
+            /// <summary>
+            /// Gets or sets the GUID of the group type to filter by.
+            /// </summary>
+            public Guid GroupTypeGuid { get; set; }
+
+            /// <summary>
+            /// Gets or sets a value indicating whether to include inactive groups.
+            /// </summary>
+            public bool IncludeInactive { get; set; }
+        }
+
         #endregion
     }
+    
 }
