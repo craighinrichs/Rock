@@ -27,6 +27,7 @@ using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Web.Http;
 
 using Microsoft.AspNetCore.Mvc;
 
@@ -56,6 +57,7 @@ using Rock.Utility.CaptchaApi;
 using Rock.ViewModels.Controls;
 using Rock.ViewModels.Crm;
 using Rock.ViewModels.Rest.Controls;
+using Rock.ViewModels.Rest.Utilities;
 using Rock.ViewModels.Utility;
 using Rock.Web;
 using Rock.Web.Cache;
@@ -84,39 +86,27 @@ namespace Rock.Rest.v2
     [Rock.SystemGuid.RestControllerGuid( "815B51F0-B552-47FD-8915-C653EEDD5B67" )]
     public class ControlsController : ApiControllerBase
     {
-        /// <summary>
         /// Retrieves a list of active groups based on the specified options.
         /// </summary>
         /// <param name="options">The options used to filter the active groups.</param>
-        /// <returns>A list of active groups.</returns>
-        [HttpPost]
-        [Route("ActiveGroupsList")]
-        [Authenticate]
-        [ExcludeSecurityActions(Security.Authorization.EXECUTE_READ, Security.Authorization.EXECUTE_WRITE, Security.Authorization.EXECUTE_UNRESTRICTED_READ, Security.Authorization.EXECUTE_UNRESTRICTED_WRITE)]
-        [ProducesResponseType(HttpStatusCode.OK, Type = typeof(List<ActiveGroupsListOptionsBag>))]
-        [ProducesResponseType(HttpStatusCode.NotFound)]
-        public IActionResult ActiveGroupsList([FromBody] ActiveGroupsListOptionsBag options)
+        /// <returns>A list of active groups matching the specified criteria.</returns>
+        [HttpGet]
+        [Route("GetGroups")]
+        public IHttpActionResult GetGroups(bool includeInactive = false)
         {
-            using (var rockContext = new RockContext())
-            {
-                var groupService = new GroupService(rockContext);
-                var qry = groupService.Queryable().AsNoTracking()
-                    .Where(g => g.IsActive && g.GroupType.Guid == options.GroupTypeGuid);
-                if (options.IncludeInactive)
+            var groupService = new GroupService(new RockContext());
+
+            var groups = groupService.Queryable()
+                .Where(g => includeInactive || g.IsActive)
+                .Select(g => new ListGroupsOptionsBag
                 {
-                    qry = qry.Where(g => !g.IsActive);
-                }
-                var groups = qry
-                    .OrderBy(g => g.Name)
-                    .Select(g => new ListItemBag
-                    {
-                        Value = g.Guid.ToString(),
-                        Text = g.Name,
-                        Category = g.GroupType.Name
-                    })
-                    .ToList();
-                return Ok(groups);
-            }
+                    Guid = g.Guid,
+                    Name = g.Name,
+                    IsActive = g.IsActive
+                })
+                .ToList();
+
+            return Ok(groups);
         }
 
 
@@ -10093,22 +10083,6 @@ namespace Rock.Rest.v2
                 IsActive = item.IsActive,
                 Children = item.Children?.Select( convertTreeViewItemToTreeItemBag ).ToList()
             };
-        }
-
-        /// <summary>
-        /// Represents the options for retrieving a list of active groups.
-        /// </summary>
-        public class ActiveGroupsListOptionsBag
-        {
-            /// <summary>
-            /// Gets or sets the GUID of the group type to filter by.
-            /// </summary>
-            public Guid GroupTypeGuid { get; set; }
-
-            /// <summary>
-            /// Gets or sets a value indicating whether to include inactive groups.
-            /// </summary>
-            public bool IncludeInactive { get; set; }
         }
 
         #endregion
