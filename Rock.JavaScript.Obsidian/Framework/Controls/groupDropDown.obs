@@ -1,0 +1,73 @@
+<template>
+    <RockFormField v-bind="fieldProps" :modelValue="formFieldValue" name="group-drop-down" :disabled="disabled">
+        <BaseAsyncPicker
+                         v-model="internalValue"
+                         v-bind="standardProps"
+                         :label="label"
+                         :items="groupItems"
+                         :multiple="false"
+                         :disabled="disabled"
+                         showBlankItem
+                         rules=""
+                         :displayStyle="PickerDisplayStyle.Condensed" />
+    </RockFormField>
+</template>
+
+<script setup lang="ts">
+    import { computed } from "vue";
+    import { useHttp } from "@Obsidian/Utility/http";
+    import { PickerDisplayStyle } from "@Obsidian/Enums/Controls/pickerDisplayStyle";
+    import RockFormField from "./rockFormField.obs";
+    import BaseAsyncPicker from "./baseAsyncPicker.obs";
+    import { ListItemBag } from "@Obsidian/ViewModels/Utility/listItemBag";
+    import { useVModelPassthrough } from "@Obsidian/Utility/component";
+    import {
+        useStandardRockFormFieldProps,
+        useStandardAsyncPickerProps,
+        standardAsyncPickerProps
+    } from "@Obsidian/Utility/component";
+
+    const props = defineProps({
+        modelValue: {
+            type: Object as () => ListItemBag | null,
+            default: null
+        },
+
+        includeInactive: {
+            type: Boolean,
+            default: false
+        },
+
+        disabled: {
+            type: Boolean,
+            default: false
+        },
+
+        ...standardAsyncPickerProps
+    });
+
+    const emit = defineEmits(["update:modelValue"]);
+
+    const http = useHttp();
+    const fieldProps = useStandardRockFormFieldProps(props);
+    const standardProps = useStandardAsyncPickerProps(props);
+    const internalValue = useVModelPassthrough(props, "modelValue", emit);
+
+    const formFieldValue = computed(() => internalValue.value);
+
+    const groupItems = async (): Promise<ListItemBag[]> => {
+        const response = await http.get<Array<{ guid: string, name: string, isActive: boolean }>>(
+            `/api/v2/Controls/GroupList?includeInactive=${props.includeInactive}`
+        );
+
+        if (response.isSuccess && response.data) {
+            return response.data.map(g => ({
+                text: `${g.name}${g.isActive === false ? " (Inactive)" : ""}`,
+                value: g.guid
+            }));
+        }
+
+        console.error(response.errorMessage ?? "Error loading group list.");
+        return [];
+    };
+</script>

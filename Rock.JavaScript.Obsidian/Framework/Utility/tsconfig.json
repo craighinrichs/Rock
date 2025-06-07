@@ -4,7 +4,7 @@
     "composite": true,
     "module": "ESNext"
   },
-  "include": [ "./*.ts" ],
+  "include": [ "./*.ts", "../ViewModels/Utility/listGroupsOptionsBag.ts" ],
   "references": [
     { "path": "../Enums" },
     { "path": "../Libs" }
